@@ -1,0 +1,23 @@
+# Dependencies
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+env/
+node_modules/
+build/
+dist/
+
+# Vector stores
+backend/vector_stores/
+backend/uploads/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+nohup.out
