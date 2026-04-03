@@ -37,6 +37,7 @@ function ChatInterface({ docId }) {
           followups: result.followups,
           retrievalMethod: result.retrieval_method,
           suggestedCorrection: result.suggested_correction,
+          metrics: result.metrics,
         },
       ]);
       // Update conversation memory
@@ -112,6 +113,14 @@ function ChatInterface({ docId }) {
               {msg.retrievalMethod && (
                 <div className="retrieval-badge">
                   <span className="retrieval-icon">⚡</span> {msg.retrievalMethod}
+                </div>
+              )}
+              {msg.metrics && (
+                <div className="metrics-bar">
+                  <span className="metric-item">⚡ {msg.metrics.latency_seconds}s</span>
+                  <span className="metric-item">📥 {msg.metrics.input_tokens} in</span>
+                  <span className="metric-item">📤 {msg.metrics.output_tokens} out</span>
+                  <span className="metric-item">📄 {msg.metrics.chunks_used} chunks</span>
                 </div>
               )}
               {msg.citations && msg.citations.length > 0 && (

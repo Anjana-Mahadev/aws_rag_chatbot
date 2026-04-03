@@ -710,6 +710,29 @@ body {
   font-size: 0.7rem;
 }
 
+/* ─── Metrics Bar ─── */
+.metrics-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.metric-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+
 /* ─── Correction Suggestion ─── */
 .correction-suggestion {
   font-size: 0.72rem;

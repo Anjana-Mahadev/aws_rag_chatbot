@@ -71,20 +71,24 @@ def build_vector_store(doc_id: str, chunks: list[dict], filename: str, session_i
         }, f)
 
 
-def _rrf(rankings: list[list[int]], k: int = 60) -> list[int]:
-    """Reciprocal Rank Fusion across multiple ranked lists."""
+def _rrf(rankings: list[list[int]], k: int = 60) -> list[tuple[int, float]]:
+    """Reciprocal Rank Fusion across multiple ranked lists.
+    Returns list of (doc_idx, score) sorted by score descending."""
     scores: dict[int, float] = {}
     for ranking in rankings:
         for rank, doc_idx in enumerate(ranking):
             scores[doc_idx] = scores.get(doc_idx, 0.0) + 1.0 / (k + rank + 1)
-    return [idx for idx, _ in sorted(scores.items(), key=lambda x: x[1], reverse=True)]
+    return sorted(scores.items(), key=lambda x: x[1], reverse=True)
 
 
-def search_vector_store(doc_id: str, query: str, top_k: int = 5) -> list[dict]:
+def search_vector_store(doc_id: str, query: str, top_k: int = 10, score_threshold: float = 0.4) -> list[dict]:
     """Hybrid search: FAISS (dense) + BM25 (sparse) fused via RRF.
     
-    Returns list of {"text": str, "pages": [int, ...]} dicts.
-    Backward-compatible: old stores with plain string chunks still work.
+    Retrieves up to top_k candidates, then filters by RRF score.
+    Only chunks scoring above (top_score * score_threshold) are returned.
+    This gives dynamic chunk counts: simple questions get fewer, broad ones get more.
+    
+    Returns list of {"text": str, "pages": [int, ...], "score": float} dicts.
     """
     idx_path = _index_path(doc_id)
     if not os.path.exists(idx_path):
@@ -124,10 +128,30 @@ def search_vector_store(doc_id: str, query: str, top_k: int = 5) -> list[dict]:
     # --- Reciprocal Rank Fusion ---
     fused = _rrf([dense_ranking, sparse_ranking])
 
+    if not fused:
+        return []
+
+    # Dynamic filtering: keep chunks scoring at least score_threshold × best score
+    best_score = fused[0][1]
+    cutoff = best_score * score_threshold
+
     results = []
-    for idx in fused[:top_k]:
+    for idx, score in fused[:top_k]:
+        if score < cutoff:
+            break
         if 0 <= idx < n_chunks:
-            results.append(chunks[idx])
+            chunk = dict(chunks[idx])  # copy
+            chunk["score"] = round(score, 4)
+            results.append(chunk)
+
+    # Always return at least 1 chunk if available
+    if not results and fused:
+        idx, score = fused[0]
+        if 0 <= idx < n_chunks:
+            chunk = dict(chunks[idx])
+            chunk["score"] = round(score, 4)
+            results.append(chunk)
+
     return results
 
 

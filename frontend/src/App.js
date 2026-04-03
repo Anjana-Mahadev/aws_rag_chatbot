@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import FileUpload from "./components/FileUpload";
 import ChatInterface from "./components/ChatInterface";
 import DocumentList from "./components/DocumentList";
-import { getDocuments, deleteDocument, initSession, pingSession } from "./api";
+import { getDocuments, deleteDocument, initSession, pingSession, cleanupSession } from "./api";
 import "./App.css";
 
 function App() {
@@ -13,9 +13,14 @@ function App() {
     try {
       const docs = await getDocuments();
       setDocuments(docs);
-      // Auto-select first document if none selected
       if (docs.length > 0) {
-        setSelectedDoc((prev) => prev || docs[0].doc_id);
+        setSelectedDoc((prev) => {
+          // Keep selection if still valid, otherwise select first
+          const valid = docs.some((d) => d.doc_id === prev);
+          return valid ? prev : docs[0].doc_id;
+        });
+      } else {
+        setSelectedDoc(null);
       }
     } catch {
       // backend may not be ready yet
@@ -35,16 +40,23 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Warn user when closing tab (documents will be cleaned up by server)
+  // On tab close: warn user + immediately trigger cleanup via sendBeacon
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (documents.length > 0) {
         e.preventDefault();
-        e.returnValue = "Your uploaded documents will be deleted after you leave. Continue?";
+        e.returnValue = "Your uploaded documents will be deleted when you leave. Continue?";
       }
     };
+    const handleUnload = () => {
+      cleanupSession();
+    };
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("unload", handleUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("unload", handleUnload);
+    };
   }, [documents]);
 
   const handleUploadComplete = (newDoc) => {

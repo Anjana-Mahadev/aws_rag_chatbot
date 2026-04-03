@@ -1,3 +1,5 @@
+import time
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from spellchecker import SpellChecker
@@ -88,7 +90,7 @@ def query_document(req: QueryRequest):
     query_text = original_question
 
     try:
-        relevant_chunks = search_vector_store(req.doc_id, query_text, top_k=3)
+        relevant_chunks = search_vector_store(req.doc_id, query_text)
     except FileNotFoundError:
         raise HTTPException(
             status_code=404, detail="Document not found. Please upload it first."
@@ -103,7 +105,14 @@ def query_document(req: QueryRequest):
     # Extract text for LLM context
     chunk_texts = [c["text"] for c in relevant_chunks]
     history_dicts = [h.model_dump() for h in req.chat_history]
-    answer = ask_llm(query_text, chunk_texts, chat_history=history_dicts)
+
+    start_time = time.time()
+    llm_result = ask_llm(query_text, chunk_texts, chat_history=history_dicts)
+    latency = round(time.time() - start_time, 2)
+
+    answer = llm_result["answer"]
+    input_tokens = llm_result["input_tokens"]
+    output_tokens = llm_result["output_tokens"]
 
     # Generate follow-up suggestions
     followups = generate_followups(query_text, answer, chunk_texts)
@@ -125,6 +134,12 @@ def query_document(req: QueryRequest):
         "citations": citations,
         "followups": followups,
         "retrieval_method": "Hybrid Search (FAISS Dense + BM25 Sparse · RRF Fusion)",
+        "metrics": {
+            "latency_seconds": latency,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "chunks_used": len(relevant_chunks),
+        },
     }
     if suggested_correction:
         response["suggested_correction"] = suggested_correction

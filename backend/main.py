@@ -46,6 +46,34 @@ def ping_session(x_session_id: str = Header(default="")):
     return {"status": "ok"}
 
 
+@app.post("/api/session/cleanup")
+def cleanup_session(x_session_id: str = Header(default=""), session_id: str = ""):
+    """Immediately delete all documents for a session (called on tab close via sendBeacon)."""
+    sid = x_session_id or session_id  # sendBeacon uses query param, normal calls use header
+    if not sid:
+        return {"status": "no session"}
+
+    docs = get_indexed_documents()
+    count = 0
+    for doc in docs:
+        if doc.get("session_id") == sid:
+            s3_key = f"documents/{doc['doc_id']}_{doc['filename']}"
+            try:
+                delete_file_from_s3(s3_key)
+            except Exception:
+                pass
+            try:
+                delete_vector_store(doc["doc_id"])
+            except Exception:
+                pass
+            count += 1
+
+    _session_heartbeats.pop(sid, None)
+    if count:
+        print(f"[Cleanup] Tab closed — removed {count} document(s) for session {sid[:8]}")
+    return {"status": "cleaned", "removed": count}
+
+
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy"}

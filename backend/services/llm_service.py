@@ -19,18 +19,15 @@ def _get_bedrock_client():
     )
 
 
-def ask_llm(question: str, context_chunks: list[str], chat_history: list[dict] = None) -> str:
+def ask_llm(question: str, context_chunks: list[str], chat_history: list[dict] = None) -> dict:
     """Send a question + retrieved context to Bedrock and get an answer.
     
-    Cost-saving measures:
-    - max_tokens capped at 512 (shorter answers = less output cost)
-    - Context chunks truncated to 500 chars each to reduce input tokens
-    - Only top-3 chunks sent (fewer input tokens)
+    Returns dict with 'answer', 'input_tokens', 'output_tokens'.
     """
     client = _get_bedrock_client()
 
-    # Truncate each chunk to save input tokens
-    trimmed = [c[:500] for c in context_chunks[:3]]
+    # Truncate each chunk to save input tokens (send up to 8 chunks, 500 chars each)
+    trimmed = [c[:500] for c in context_chunks[:8]]
     context = "\n\n---\n\n".join(trimmed)
 
     # Build conversation history string
@@ -72,7 +69,12 @@ Context:
     )
 
     result = json.loads(response["body"].read())
-    return result["content"][0]["text"]
+    usage = result.get("usage", {})
+    return {
+        "answer": result["content"][0]["text"],
+        "input_tokens": usage.get("input_tokens", 0),
+        "output_tokens": usage.get("output_tokens", 0),
+    }
 
 
 def generate_followups(question: str, answer: str, context_chunks: list[str]) -> list[str]:

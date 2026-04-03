@@ -25,6 +25,8 @@ function FileUpload({ onUploadComplete }) {
       const result = await uploadPDF(file);
       setStatus({ type: "success", message: `"${result.filename}" indexed (${result.num_chunks} chunks)` });
       onUploadComplete(result);
+      // Clear success message after 3 seconds
+      setTimeout(() => setStatus(null), 3000);
     } catch (err) {
       const msg = err.response?.data?.detail || "Upload failed. Is the backend running?";
       setStatus({ type: "error", message: msg });
@@ -60,7 +62,7 @@ function FileUpload({ onUploadComplete }) {
         />
       </div>
       <div className="upload-limits">Max 50 MB · 500 pages · 5 documents</div>
-      <div className="upload-warning">⚠️ Documents are auto-deleted 30 minutes after you close this tab.</div>
+      <div className="upload-warning">⚠️ Documents are auto-deleted when you close this tab.</div>
       {status && (
         <div className={`upload-status ${status.type}`}>{status.message}</div>
       )}

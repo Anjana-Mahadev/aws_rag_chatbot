@@ -63,3 +63,13 @@ export function pingSession() {
   // Lightweight heartbeat — keeps the session alive on the server
   return api.post("/session/ping").catch(() => {});
 }
+
+export function cleanupSession() {
+  // Fire-and-forget cleanup on tab close — sendBeacon guarantees delivery
+  if (_sessionId) {
+    const url = `${API_BASE}/session/cleanup`;
+    const blob = new Blob([JSON.stringify({})], { type: "application/json" });
+    // sendBeacon doesn't support custom headers, so pass session ID as query param
+    navigator.sendBeacon(`${url}?session_id=${_sessionId}`, blob);
+  }
+}

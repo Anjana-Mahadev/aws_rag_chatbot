@@ -18,15 +18,6 @@ Local Embeddings (sentence-transformers, FREE)
 AWS Bedrock (Claude 3 Haiku) — us-east-1
 ```
 
-## Cost
-
-| Component | Cost |
-|---|---|
-| Embeddings | **FREE** — local sentence-transformers |
-| S3 | **FREE tier** — 5 GB, 20K GET, 2K PUT/month |
-| Bedrock (Claude 3 Haiku) | ~$0.001 per query |
-| EC2 (t2.micro) | **FREE tier** — 750 hrs/month for 12 months |
-
 ## Prerequisites
 
 - Python 3.10+
@@ -111,7 +102,7 @@ curl -X POST http://localhost:8000/api/query \
 
 1. **Upload**: PDF is stored in S3, text is extracted per page (with OCR fallback for scanned PDFs), chunked into ~1000-char segments with page tracking
 2. **Index**: Each chunk is embedded using a free local model (sentence-transformers) and stored in a local FAISS index + BM25 sparse index
-3. **Query**: User's question is auto-corrected for spelling, then searched via hybrid retrieval (FAISS dense + BM25 sparse, fused with Reciprocal Rank Fusion). Conversation history from the session is included for context-aware follow-ups
+3. **Query**: User's question is auto-corrected for spelling, then searched via hybrid retrieval (FAISS dense + BM25 sparse, fused with Reciprocal Rank Fusion). The number of chunks retrieved is **dynamic** — only chunks above a relevance score threshold are used, so simple questions get fewer chunks and complex ones get more. Conversation history from the session is included for context-aware follow-ups
 4. **Answer**: Retrieved chunks + question + chat history are sent to Claude 3 Haiku via Bedrock for the final answer, with page-level citations
 5. **Follow-ups**: A second LLM call generates 3 suggested follow-up questions displayed as clickable chips
 
@@ -134,7 +125,7 @@ Each browser tab gets a unique anonymous session. Users can only see, query, and
 - Chat-style Q&A interface
 - **Conversation Memory**: Maintains context across follow-up questions within a session — ask "what about chapter 3?" after a previous answer and it understands
 - **Follow-up Suggestions**: After each answer, 3 AI-generated follow-up questions appear as clickable chips to keep exploration flowing
-- **Hybrid search**: FAISS dense + BM25 sparse retrieval with RRF fusion
+- **Hybrid search**: FAISS dense + BM25 sparse retrieval with RRF fusion and **dynamic chunk selection** (score-based threshold — retrieves 1–10 chunks depending on relevance)
 - **Citations**: Answers include page numbers and text snippets from the source PDF
 - **Auto-correct**: Spelling mistakes in questions are corrected before retrieval
 - **User Isolation**: Each browser tab gets a unique session — users only see their own documents
@@ -153,4 +144,3 @@ Each browser tab gets a unique anonymous session. Users can only see, query, and
 5. Build frontend: `npm run build`, serve with nginx or similar
 6. Open port 8000 (API) and 80/443 (frontend) in security groups
 
-> **Note:** t2.micro has 1 GB RAM. PyTorch + sentence-transformers is tight. Consider t3.small if you hit memory issues.
